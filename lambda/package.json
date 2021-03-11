@@ -1,0 +1,15 @@
+{
+  "name": "control-module-checker",
+  "version": "1.0.0",
+  "description": "A CDK envirornment that checks for modules from the CONTROL online store & notifies me if it is available.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Benjamin Lannon",
+  "private": true,
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "playwright": "^1.9.2"
+  }
+}
