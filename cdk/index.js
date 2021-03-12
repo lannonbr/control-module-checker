@@ -8,16 +8,6 @@ class ControlModuleCheckerStack extends cdk.Stack {
   constructor(app, id) {
     super(app, id);
 
-    // Lambda function
-    const fn = new lambda.Function(this, "Code", {
-      code: new lambda.AssetCode("../lambda"),
-      functionName: "control-module-checker-function",
-      handler: "index.handler",
-      runtime: lambda.Runtime.NODEJS_14_X,
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(15),
-    });
-
     // Dynamo table
     const dbTable = new dynamodb.Table(this, "control-storage-table", {
       tableName: "control-storage-table",
@@ -29,9 +19,24 @@ class ControlModuleCheckerStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Event Trigger
+    // Lambda function
+    const fn = new lambda.Function(this, "Code", {
+      code: new lambda.AssetCode("../lambda"),
+      functionName: "control-module-checker-function",
+      handler: "index.handler",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(15),
+      environment: {
+        DYNAMO_TABLE_NAME: dbTable.tableName,
+      },
+    });
+
+    dbTable.grantReadWriteData(fn);
+
+    // Event Trigger - Every day at 16:00 UTC
     const rule = new events.Rule(this, "Rule", {
-      schedule: events.Schedule.expression("cron(0 18 * * *)"),
+      schedule: events.Schedule.expression("cron(0 16 * * *)"),
     });
 
     rule.addTarget(new targets.LambdaFunction(fn));
@@ -39,5 +44,8 @@ class ControlModuleCheckerStack extends cdk.Stack {
 }
 
 const app = new cdk.App();
-new ControlModuleCheckerStack(app, "ControlModuleChecker");
+
+const stack = new ControlModuleCheckerStack(app, "ControlModuleChecker");
+cdk.Tags.of(stack).add("project", "control-module-checker");
+
 app.synth();
