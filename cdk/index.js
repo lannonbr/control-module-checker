@@ -26,7 +26,7 @@ class ControlModuleCheckerStack extends cdk.Stack {
       handler: "index.handler",
       runtime: lambda.Runtime.NODEJS_14_X,
       memorySize: 512,
-      timeout: cdk.Duration.seconds(15),
+      timeout: cdk.Duration.seconds(60),
       environment: {
         DYNAMO_TABLE_NAME: dbTable.tableName,
       },
@@ -36,7 +36,7 @@ class ControlModuleCheckerStack extends cdk.Stack {
 
     // Event Trigger - Every day at 16:00 UTC
     const rule = new events.Rule(this, "Rule", {
-      schedule: events.Schedule.expression("cron(0 16 * * *)"),
+      schedule: events.Schedule.expression("cron(0 16 * * ? *)"),
     });
 
     rule.addTarget(new targets.LambdaFunction(fn));
@@ -46,6 +46,6 @@ class ControlModuleCheckerStack extends cdk.Stack {
 const app = new cdk.App();
 
 const stack = new ControlModuleCheckerStack(app, "ControlModuleChecker");
-cdk.Tags.of(stack).add("project", "control-module-checker");
+cdk.Tags.of(stack).add("Project", "control-module-checker");
 
 app.synth();

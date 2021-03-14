@@ -1,9 +1,13 @@
-const { chromium } = require("playwright");
 const AWS = require("aws-sdk");
+const fetch = require("node-fetch");
+const cheerio = require("cheerio");
 
 AWS.config.update({
   region: "us-east-1",
 });
+
+// States
+// ["Out of Stock", "Pre-Order", "In Stock"]
 
 var docClient = new AWS.DynamoDB.DocumentClient({ apiVersion: "2012-08-10" });
 
@@ -14,28 +18,67 @@ exports.handler = async function () {
 
   const data = await docClient.scan(getParams).promise();
 
-  const urls = data.map((entry) => entry.url);
+  const entries = data.Items;
 
-  const browser = await chromium.launch();
+  let results = [];
 
-  let results = {};
+  for (let entry of entries) {
+    const status = await getStatus(entry.url);
 
-  // let url =
-  //   "https://www.ctrl-mod.com/products/mutable-instruments-blades-dual-multimode-filter";
+    console.log(`Status for "${entry.name}": ${status}`);
 
-  for (let url of urls) {
-    const page = await browser.newPage();
-    await page.goto(url);
-
-    const product = await page.textContent(".product-title");
-    const status = await page.textContent("#stock-status-wrap > a");
-
-    console.log(`Status for "${product}": ${status}`);
-
-    results[url] = status;
-
-    await page.close();
+    results.push({
+      name: entry.name,
+      inStock: status === "In Stock" || status === "Pre-Order",
+      id: entry.id,
+      url: entry.url,
+    });
   }
 
-  await browser.close();
+  // TODO: Find diff between data in Dynamo and current state, notify modules in stock, and save changes back to Dynamo
+
+  const inStockModules = results.filter((mod) => {
+    return mod.inStock;
+  });
+
+  if (inStockModules.length === 0) {
+    // No modules in stock, don't send any messages
+  } else {
+    // Notify me of available modules
+    // && Save new update
+    inStockModules.forEach(mod => {
+      let updateParams = {
+        TableName: process.env.DYNAMO_TABLE_NAME,
+        Key: {
+          id: mod.id,
+        },
+        UpdateExpression: 'set inStock = :s',
+        ExpressionAttributeValues: {
+          ":s": mod.inStock
+        }
+      }
+
+      try {
+        await docClient.update(updateParams).promise()
+      } catch (err) {
+        console.error('Failed to update item')
+        console.error(err)
+      }
+    })
+  }
+
+  return {
+    statusCode: 200,
+  };
 };
+
+async function getStatus(url) {
+  const resp = await fetch(url);
+  const html = await resp.text();
+
+  const $ = cheerio.load(html);
+
+  let status = $("#stock-status-wrap > a").text().trim();
+
+  return status;
+}

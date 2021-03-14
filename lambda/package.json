@@ -9,10 +9,9 @@
   "author": "Benjamin Lannon",
   "private": true,
   "license": "UNLICENSED",
-  "devDependencies": {
-    "playwright": "^1.9.2"
-  },
   "dependencies": {
-    "aws-sdk": "^2.862.0"
+    "aws-sdk": "^2.862.0",
+    "cheerio": "^1.0.0-rc.5",
+    "node-fetch": "^2.6.1"
   }
 }
