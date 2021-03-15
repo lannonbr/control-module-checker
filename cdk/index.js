@@ -3,6 +3,7 @@ const lambda = require("@aws-cdk/aws-lambda");
 const events = require("@aws-cdk/aws-events");
 const targets = require("@aws-cdk/aws-events-targets");
 const dynamodb = require("@aws-cdk/aws-dynamodb");
+require("dotenv").config();
 
 class ControlModuleCheckerStack extends cdk.Stack {
   constructor(app, id) {
@@ -29,6 +30,10 @@ class ControlModuleCheckerStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60),
       environment: {
         DYNAMO_TABLE_NAME: dbTable.tableName,
+        TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+        TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+        TWILIO_TO_NUM: process.env.TWILIO_TO_NUM,
+        TWILIO_FROM_NUM: process.env.TWILIO_FROM_NUM,
       },
     });
 

@@ -35,36 +35,54 @@ exports.handler = async function () {
     });
   }
 
-  // TODO: Find diff between data in Dynamo and current state, notify modules in stock, and save changes back to Dynamo
+  const diff = checkDiff(entries, results);
 
-  const inStockModules = results.filter((mod) => {
+  const inStockModules = diff.filter((mod) => {
     return mod.inStock;
   });
 
-  if (inStockModules.length === 0) {
-    // No modules in stock, don't send any messages
-  } else {
-    // Notify me of available modules
-    // && Save new update
-    inStockModules.forEach(mod => {
-      let updateParams = {
-        TableName: process.env.DYNAMO_TABLE_NAME,
-        Key: {
-          id: mod.id,
-        },
-        UpdateExpression: 'set inStock = :s',
-        ExpressionAttributeValues: {
-          ":s": mod.inStock
-        }
-      }
+  for (let mod of diff) {
+    let updateParams = {
+      TableName: process.env.DYNAMO_TABLE_NAME,
+      Key: {
+        id: mod.id,
+      },
+      UpdateExpression: "set inStock = :s",
+      ExpressionAttributeValues: {
+        ":s": mod.inStock,
+      },
+    };
 
-      try {
-        await docClient.update(updateParams).promise()
-      } catch (err) {
-        console.error('Failed to update item')
-        console.error(err)
-      }
-    })
+    console.log("Saving ${mod.name} changes back to Dynamo");
+
+    try {
+      await docClient.update(updateParams).promise();
+    } catch (err) {
+      console.error("Failed to update item");
+      console.error(err);
+    }
+  }
+
+  if (inStockModules.length > 0) {
+    const names = inStockModules.map((mod) => mod.name);
+
+    console.log(names);
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const client = require("twilio")(accountSid, authToken);
+
+    let appName = "[CONTROL Module Checker]";
+
+    let body = `${appName} New Modules in Stock: ${names.join(", ")}`;
+
+    await client.messages
+      .create({
+        body,
+        from: process.env.TWILIO_FROM_NUM,
+        to: process.env.TWILIO_TO_NUM,
+      })
+      .then((message) => console.log(message.sid));
   }
 
   return {
@@ -81,4 +99,23 @@ async function getStatus(url) {
   let status = $("#stock-status-wrap > a").text().trim();
 
   return status;
+}
+
+/**
+ *
+ * @param {Array} a
+ * @param {Array} b
+ */
+function checkDiff(a, b) {
+  const diffArray = [];
+
+  a.forEach((aItem) => {
+    const bItem = b.find((bItem) => bItem.id === aItem.id);
+
+    if (bItem && aItem.inStock !== bItem.inStock) {
+      diffArray.push(bItem);
+    }
+  });
+
+  return diffArray;
 }
